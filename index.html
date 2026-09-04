@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VTIP — Virtual Traffic Intelligence Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&family=Oxanium:wght@200;400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#040810;--bg2:#070d1a;--panel:#0a1428;--panel2:#0d1d38;--border:#1a3060;--accent:#00d4ff;--accent2:#00ff9d;--accent3:#ff6b35;--warn:#ffcc00;--danger:#ff3355;--text:#c8ddf0;--text2:#7a9aba;--text3:#3d5a7a;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.02) 1px,transparent 1px);background-size:50px 50px;pointer-events:none;z-index:0;}
+
+/* HEADER */
+header{position:sticky;top:0;z-index:1000;background:rgba(4,8,16,0.97);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);padding:0 16px;display:flex;align-items:center;gap:10px;height:56px;}
+.logo{font-family:'Oxanium',monospace;font-weight:800;font-size:20px;color:var(--accent);letter-spacing:2px;flex-shrink:0;}
+.logo span{color:var(--accent2);}
+.cwrap{display:flex;align-items:center;gap:8px;flex:1;max-width:520px;}
+.swrap{position:relative;flex:1;}
+#csearch{width:100%;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 12px 6px 32px;font-family:'Rajdhani',sans-serif;font-size:14px;border-radius:3px;outline:none;transition:border-color 0.2s;}
+#csearch:focus{border-color:var(--accent);}
+.sico{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:13px;pointer-events:none;}
+#cdrop{position:absolute;top:calc(100% + 3px);left:0;right:0;background:var(--panel2);border:1px solid var(--accent);border-radius:3px;z-index:3000;max-height:260px;overflow-y:auto;display:none;box-shadow:0 8px 24px rgba(0,0,0,0.7);}
+.copt{padding:8px 12px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(26,48,96,0.3);}
+.copt:hover{background:rgba(0,212,255,0.1);}
+.cpop{font-size:10px;color:var(--text3);margin-left:auto;font-family:'Share Tech Mono',monospace;}
+.qpicks{display:flex;gap:5px;flex-shrink:0;}
+.qbtn{padding:4px 9px;font-family:'Oxanium',monospace;font-size:10px;font-weight:600;letter-spacing:1px;background:transparent;border:1px solid var(--border);color:var(--text3);border-radius:3px;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+.qbtn:hover,.qbtn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,0.08);}
+.hright{display:flex;gap:8px;align-items:center;margin-left:auto;flex-shrink:0;}
+.spill{display:flex;align-items:center;gap:5px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text2);background:var(--panel);border:1px solid var(--border);padding:3px 9px;border-radius:20px;white-space:nowrap;}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--accent2);box-shadow:0 0 6px var(--accent2);animation:pulse 2s infinite;}
+.sdot.w{background:var(--warn);box-shadow:0 0 6px var(--warn);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.clock{font-family:'Share Tech Mono',monospace;font-size:16px;color:var(--accent);}
+#cbadge{font-family:'Oxanium',monospace;font-size:12px;font-weight:700;color:var(--accent2);background:rgba(0,255,157,0.08);border:1px solid rgba(0,255,157,0.3);padding:3px 10px;border-radius:3px;}
+
+/* NAV — NO HEATMAP */
+nav{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 16px;gap:2px;position:sticky;top:56px;z-index:999;overflow-x:auto;}
+.tab{padding:10px 18px;font-family:'Oxanium',monospace;font-weight:600;font-size:11px;letter-spacing:1px;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;text-transform:uppercase;white-space:nowrap;}
+.tab:hover{color:var(--text2);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+main{position:relative;z-index:1;}
+.section{display:none;padding:16px;}
+.section.active{display:block;}
+.shdr{display:flex;align-items:baseline;gap:10px;margin-bottom:12px;}
+.shdr h2{font-family:'Oxanium',monospace;font-size:20px;font-weight:800;}
+.shdr .sub{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text3);}
+
+.card{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:14px;position:relative;overflow:hidden;}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0.35;}
+.card.g::before{background:linear-gradient(90deg,transparent,var(--accent2),transparent);}
+.card.o::before{background:linear-gradient(90deg,transparent,var(--accent3),transparent);}
+.card.w::before{background:linear-gradient(90deg,transparent,var(--warn),transparent);}
+.ct{font-family:'Oxanium',monospace;font-size:10px;font-weight:600;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.ct::after{content:'';flex:1;height:1px;background:var(--border);}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.kv{font-family:'Oxanium',monospace;font-size:30px;font-weight:800;line-height:1;color:var(--accent);}
+.kv.g{color:var(--accent2);}.kv.o{color:var(--accent3);}.kv.w{color:var(--warn);}
+.kl{font-size:10px;color:var(--text2);margin-top:3px;letter-spacing:1px;}
+.kd{font-family:'Share Tech Mono',monospace;font-size:9px;margin-top:4px;color:var(--accent2);}
+.kd.neg{color:var(--danger);}
+.divr{height:1px;background:var(--border);margin:14px 0;}
+canvas{width:100%!important;}
+.cw{position:relative;height:185px;}
+.cwt{position:relative;height:245px;}
+
+/* LEAFLET POPUP */
+.leaflet-popup-content-wrapper{background:#0a1428!important;border:1px solid #00d4ff!important;border-radius:4px!important;color:#c8ddf0!important;box-shadow:0 0 20px rgba(0,212,255,0.3)!important;}
+.leaflet-popup-tip{background:#0a1428!important;}
+.leaflet-popup-content{margin:10px 14px!important;font-family:'Rajdhani',sans-serif;}
+
+/* MAP */
+#dtw{position:relative;border:1px solid var(--border);border-radius:4px;overflow:hidden;background:#050c1a;}
+#dtm{width:100%;height:510px;}
+#rpanel{position:absolute;top:10px;left:10px;z-index:500;background:rgba(4,8,16,0.93);border:1px solid var(--border);border-radius:3px;width:210px;max-height:470px;overflow-y:auto;}
+#rptitle{font-family:'Oxanium',monospace;font-size:10px;letter-spacing:2px;color:var(--text3);padding:8px 12px;border-bottom:1px solid var(--border);text-transform:uppercase;}
+.ri{padding:7px 12px;cursor:pointer;display:flex;align-items:center;gap:7px;font-size:10px;transition:background 0.15s;border-bottom:1px solid rgba(26,48,96,0.2);}
+.ri:last-child{border-bottom:none;}
+.ri:hover,.ri.sel{background:rgba(0,212,255,0.08);}
+.rdot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.rnm{flex:1;color:var(--text2);line-height:1.3;}
+.rst{font-family:'Share Tech Mono',monospace;font-size:8px;font-weight:700;}
+#mbadges{position:absolute;top:10px;right:10px;z-index:500;display:flex;flex-direction:column;gap:6px;}
+.mb{background:rgba(4,8,16,0.93);border:1px solid var(--border);border-radius:3px;padding:6px 10px;}
+.mb .mv{font-size:17px;font-family:'Oxanium',monospace;font-weight:800;color:var(--accent2);}
+.mb .ml{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;}
+#gbadge{position:absolute;bottom:12px;left:12px;z-index:500;background:rgba(0,212,255,0.07);border:1px solid rgba(0,212,255,0.35);border-radius:3px;padding:5px 11px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--accent);}
+#scbanner{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:500;background:rgba(255,107,53,0.13);border:1px solid var(--accent3);border-radius:3px;padding:5px 14px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--accent3);display:none;white-space:nowrap;}
+
+/* SIGNAL */
+.sigr{display:flex;align-items:center;gap:7px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:3px;margin-bottom:5px;}
+.slt{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.slt.green{background:#00ff9d;box-shadow:0 0 7px #00ff9d;}
+.slt.red{background:#ff3355;box-shadow:0 0 7px #ff3355;}
+.snm{font-family:'Share Tech Mono',monospace;color:var(--accent);font-size:9px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.spb{flex:0 0 65px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+.spf{height:100%;border-radius:2px;transition:width 1s linear;}
+.spf.green{background:linear-gradient(90deg,#00ff9d,#00d4ff);}
+.spf.red{background:linear-gradient(90deg,#ff3355,#ff6b35);}
+.stv{font-family:'Share Tech Mono',monospace;font-size:13px;width:24px;text-align:right;}
+.shb{font-family:'Share Tech Mono',monospace;font-size:7px;padding:2px 5px;border-radius:8px;}
+.shb.h{background:rgba(0,255,157,0.1);color:var(--accent2);border:1px solid rgba(0,255,157,0.3);}
+.shb.n{background:transparent;color:var(--text3);border:1px solid var(--border);}
+
+/* LOGS */
+.llist{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;}
+.le{display:flex;align-items:flex-start;gap:6px;padding:6px 9px;background:var(--bg);border:1px solid var(--border);border-radius:3px;font-size:10px;animation:slin .3s ease;}
+@keyframes slin{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+.le.crit{border-color:rgba(255,51,85,.4);background:rgba(255,51,85,.04);}
+.le.warn{border-color:rgba(255,204,0,.4);background:rgba(255,204,0,.04);}
+.le.ok{border-color:rgba(0,255,157,.25);}
+.lt{font-family:'Share Tech Mono',monospace;color:var(--text3);font-size:9px;flex-shrink:0;}
+.lm{color:var(--text2);flex:1;line-height:1.4;}
+.ltg{flex-shrink:0;font-family:'Share Tech Mono',monospace;font-size:7px;padding:2px 4px;border-radius:2px;text-transform:uppercase;}
+.ltg.crit{background:rgba(255,51,85,.2);color:var(--danger);}
+.ltg.warn{background:rgba(255,204,0,.2);color:var(--warn);}
+.ltg.ok{background:rgba(0,255,157,.1);color:var(--accent2);}
+.ltg.info{background:rgba(0,212,255,.1);color:var(--accent);}
+
+/* COMPARE */
+.cr2{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
+.cl{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);}
+.ck{height:7px;background:var(--border);border-radius:4px;overflow:hidden;position:relative;}
+.cft{position:absolute;left:0;top:0;bottom:0;background:rgba(255,107,53,.6);border-radius:4px;transition:width 1.5s ease;}
+.cfs{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:4px;transition:width 1.5s ease;}
+
+/* WHATIF */
+.fr{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+.fg{flex:1;min-width:140px;}
+.fg label{display:block;font-size:9px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;font-family:'Share Tech Mono',monospace;}
+.fg select,.fg input[type=range]{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:7px 9px;font-family:'Rajdhani',sans-serif;font-size:13px;border-radius:3px;outline:none;}
+.fg select:focus{border-color:var(--accent);}
+.fg select option{background:var(--panel);}
+.btn{padding:8px 16px;border:none;border-radius:3px;cursor:pointer;font-family:'Oxanium',monospace;font-weight:700;font-size:11px;letter-spacing:2px;text-transform:uppercase;transition:all .2s;}
+.btnp{background:linear-gradient(135deg,rgba(0,212,255,.12),rgba(0,255,157,.12));color:var(--accent);border:1px solid var(--accent);}
+.btnp:hover{box-shadow:0 0 20px rgba(0,212,255,.3);}
+.btnd{background:rgba(255,51,85,.1);color:var(--danger);border:1px solid rgba(255,51,85,.4);}
+#scres{display:none;margin-top:12px;padding:12px;background:var(--bg);border:1px solid rgba(0,255,157,.3);border-radius:3px;}
+.rg{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px;}
+.ritem{text-align:center;}
+.ritem .rv{font-family:'Oxanium',monospace;font-size:22px;font-weight:800;color:var(--accent2);}
+.ritem .rl{font-size:10px;color:var(--text3);margin-top:2px;}
+.htbl{width:100%;border-collapse:collapse;font-size:11px;}
+.htbl th{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;padding:6px 10px;border-bottom:1px solid var(--border);text-align:left;}
+.htbl td{padding:6px 10px;border-bottom:1px solid rgba(26,48,96,.25);color:var(--text2);}
+.htbl tr:hover td{background:rgba(0,212,255,.03);}
+
+/* ROAD DETAIL */
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
+.di{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:9px;}
+.di .dv{font-family:'Oxanium',monospace;font-size:18px;font-weight:700;}
+.di .dl{font-size:9px;color:var(--text3);margin-top:2px;}
+
+.tt{position:fixed;background:rgba(4,8,16,.95);border:1px solid var(--accent);border-radius:3px;padding:5px 9px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--accent);pointer-events:none;z-index:9999;display:none;}
+.loading{display:flex;align-items:center;justify-content:center;height:100px;font-family:'Share Tech Mono',monospace;color:var(--text3);gap:8px;font-size:11px;}
+.spin{width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite;}
+@keyframes sp{to{transform:rotate(360deg)}}
+::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+@media(max-width:900px){.g3,.g4{grid-template-columns:1fr 1fr;}.g2{grid-template-columns:1fr;}.qpicks{display:none;}}
+@media(max-width:600px){.g3,.g4,.g2{grid-template-columns:1fr;}.section{padding:10px;}.hright .spill{display:none;}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">VTI<span>P</span></div>
+  <div class="cwrap">
+    <div class="swrap">
+      <span class="sico">🔍</span>
+      <input type="text" id="csearch" placeholder="Search city — Chennai, Tiruchirappalli, Tokyo…" autocomplete="off"/>
+      <div id="cdrop"></div>
+    </div>
+    <div class="qpicks">
+      <button class="qbtn active" onclick="selectCity('Chennai')">Chennai</button>
+      <button class="qbtn" onclick="selectCity('Mumbai')">Mumbai</button>
+      <button class="qbtn" onclick="selectCity('Tiruchirappalli')">Trichy</button>
+      <button class="qbtn" onclick="selectCity('Thanjavur')">Thanjavur</button>
+      <button class="qbtn" onclick="selectCity('Tokyo')">Tokyo</button>
+      <button class="qbtn" onclick="selectCity('Dubai')">Dubai</button>
+    </div>
+  </div>
+  <div class="hright">
+    <div id="cbadge">🇮🇳 Chennai</div>
+    <div class="spill"><span class="sdot"></span>TWIN LIVE</div>
+    <div class="spill"><span class="sdot w"></span>HEALING ON</div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+</header>
+
+<nav>
+  <div class="tab active" onclick="showTab('dashboard',this)">Dashboard</div>
+  <div class="tab" onclick="showTab('digital-twin',this)">Digital Twin</div>
+  <div class="tab" onclick="showTab('comparison',this)">Efficiency</div>
+  <div class="tab" onclick="showTab('whatif',this)">What-If Simulator</div>
+  <div class="tab" onclick="showTab('health',this)">System Health</div>
+</nav>
+
+<main>
+<!-- DASHBOARD -->
+<div class="section active" id="s-dashboard">
+  <div class="shdr"><h2>OVERVIEW</h2><span class="sub">// Live city traffic</span></div>
+  <div class="g4" style="margin-bottom:14px">
+    <div class="card g"><div class="ct">Throughput</div><div class="kv g" id="k-tp">—</div><div class="kl">CARS / HOUR</div><div class="kd" id="k-tpd">—</div></div>
+    <div class="card"><div class="ct">Avg Wait</div><div class="kv" id="k-wt">—</div><div class="kl">SECONDS / VEHICLE</div><div class="kd neg" id="k-wtd">—</div></div>
+    <div class="card o"><div class="ct">Active Surges</div><div class="kv o" id="k-sg">—</div><div class="kl">ROADS PREDICTED</div><div class="kd" id="k-sgn">—</div></div>
+    <div class="card w"><div class="ct">Heal Events</div><div class="kv w" id="k-he">0</div><div class="kl">AUTO-ADJUSTMENTS</div><div class="kd">SESSION</div></div>
+  </div>
+  <div class="g2">
+    <div class="card"><div class="ct">Live Traffic Volume</div><div class="cw"><canvas id="liveC"></canvas></div></div>
+    <div class="card"><div class="ct">Predicted vs Actual — T+10min</div><div class="cw"><canvas id="predC"></canvas></div></div>
+  </div>
+  <div class="divr"></div>
+  <div class="g2">
+    <div class="card"><div class="ct">Signal Controller</div><div id="siggrp"></div></div>
+    <div class="card"><div class="ct">Event Feed</div><div class="llist" id="evfeed"></div></div>
+  </div>
+</div>
+
+<!-- DIGITAL TWIN -->
+<div class="section" id="s-digital-twin">
+  <div class="shdr"><h2>DIGITAL TWIN</h2><span class="sub">// Real OSM map · roads follow actual paths · vehicles locked to coordinates</span></div>
+  <div class="g3" style="margin-bottom:14px">
+    <div class="card"><div class="ct">Ghost Clock</div><div class="kv" id="gval" style="font-size:24px">T+10:00</div><div class="kl">MINUTES AHEAD</div></div>
+    <div class="card g"><div class="ct">Adjustments</div><div class="kv g" id="dtadj">0</div><div class="kl">SIGNALS MODIFIED</div></div>
+    <div class="card"><div class="ct">Accuracy</div><div class="kv" id="dtacc">97.3%</div><div class="kl">CONFIDENCE</div></div>
+  </div>
+  <div id="dtw">
+    <div id="dtm"></div>
+    <div id="rpanel">
+      <div id="rptitle">🛣 Roads — click to focus</div>
+      <div id="rlist"></div>
+    </div>
+    <div id="mbadges">
+      <div class="mb" style="border-color:rgba(0,212,255,.4)"><div class="ml">Ghost Sim</div><div class="mv" style="color:var(--accent)">T+10:00</div></div>
+      <div class="mb"><div class="ml">Volume</div><div class="mv" id="mbv">—</div></div>
+      <div class="mb"><div class="ml">Status</div><div class="mv" id="mbs" style="font-size:13px">—</div></div>
+    </div>
+    <div id="gbadge">⟡ Ghost simulation — T+10:00 ahead</div>
+    <div id="scbanner">⚠ WHAT-IF SCENARIO ACTIVE</div>
+  </div>
+  <div class="divr"></div>
+  <div class="g2">
+    <div class="card"><div class="ct">Selected Road — Detail</div><div id="rdtl"><div class="loading"><div class="spin"></div>Click a road on the map</div></div></div>
+    <div class="card"><div class="ct">Digital Twin Log</div><div class="llist" id="dtlog"></div></div>
+  </div>
+</div>
+
+<!-- EFFICIENCY -->
+<div class="section" id="s-comparison">
+  <div class="shdr"><h2>EFFICIENCY GAUGE</h2><span class="sub">// Traditional vs Self-Healing</span></div>
+  <div class="g4" style="margin-bottom:14px">
+    <div class="card o"><div class="ct">Traditional</div><div class="kv o">840</div><div class="kl">CARS/HOUR</div></div>
+    <div class="card g"><div class="ct">Self-Healing</div><div class="kv g">1240</div><div class="kl">CARS/HOUR</div></div>
+    <div class="card o"><div class="ct">Wait — Trad</div><div class="kv o">68</div><div class="kl">SEC/VEHICLE</div></div>
+    <div class="card g"><div class="ct">Wait — Smart</div><div class="kv g">31</div><div class="kl">SEC/VEHICLE</div></div>
+  </div>
+  <div class="g2">
+    <div class="card"><div class="ct">Head-to-Head</div><div id="cmpbars"></div></div>
+    <div class="card"><div class="ct">Throughput Over Time</div><div class="cwt"><canvas id="cmpC"></canvas></div></div>
+  </div>
+</div>
+
+<!-- WHAT-IF -->
+<div class="section" id="s-whatif">
+  <div class="shdr"><h2>WHAT-IF SIMULATOR</h2><span class="sub">// Model learns from every run · dataset drives the map</span></div>
+
+  <!-- DATASET UPLOAD PANEL -->
+  <div class="card" style="margin-bottom:14px;border-color:rgba(0,255,157,0.3)">
+    <div class="ct" style="color:var(--accent2)">📂 Dataset Upload — Drive the Digital Twin with Real Data</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Upload a CSV for <b style="color:var(--accent2)">Tiruchirappalli</b> (or any city). Once loaded, the Digital Twin map uses your real traffic volumes instead of simulated ones.</div>
+    <div class="fr" style="align-items:flex-end;flex-wrap:wrap;gap:10px">
+      <div class="fg" style="min-width:180px">
+        <label>City for Dataset</label>
+        <select id="ds-city" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:7px 9px;font-family:'Rajdhani',sans-serif;font-size:13px;border-radius:3px;outline:none;">
+          <option value="Tiruchirappalli">Tiruchirappalli</option>
+          <option value="Chennai">Chennai</option>
+          <option value="Mumbai">Mumbai</option>
+          <option value="Delhi">Delhi</option>
+          <option value="Bengaluru">Bengaluru</option>
+          <option value="Thanjavur">Thanjavur</option>
+        </select>
+      </div>
+      <div class="fg" style="min-width:250px">
+        <label>CSV File (road_id, hour, volume, capacity, event…)</label>
+        <input type="file" id="ds-file" accept=".csv" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 9px;font-family:'Rajdhani',sans-serif;font-size:12px;border-radius:3px;cursor:pointer;"/>
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-end;padding-bottom:2px">
+        <button class="btn btnp" onclick="uploadDataset()">⬆ UPLOAD & APPLY</button>
+        <button class="btn btnd" onclick="clearDataset()">✕ CLEAR DATA</button>
+      </div>
+    </div>
+    <div id="ds-status" style="margin-top:10px;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:3px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text3)">
+      No dataset loaded — using simulated data
+    </div>
+    <div id="ds-result" style="display:none;margin-top:8px;padding:10px 14px;border-radius:3px;font-size:11px;"></div>
+  </div>
+
+  <!-- WHAT-IF SCENARIO CARD -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="ct">⚙ Configure Scenario</div>
+    <div class="fr">
+      <div class="fg"><label>Event Type</label><select id="wi-ev"><option value="festival">Road Closed — Festival</option><option value="accident">Accident — Lane Blocked</option><option value="construction">Construction — 50% Capacity</option><option value="rain">Heavy Rain</option><option value="peak">Unexpected Peak Hour</option></select></div>
+      <div class="fg"><label>Affected Road</label><select id="wi-rd"></select></div>
+      <div class="fg"><label>Duration</label><select id="wi-du"><option value="15">15 min</option><option value="30">30 min</option><option value="60">1 hour</option><option value="120">2 hours</option></select></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Intensity: <span id="wi-iv">100</span>%</label><input type="range" id="wi-in" min="50" max="200" value="100" oninput="document.getElementById('wi-iv').textContent=this.value"></div>
+      <div class="fg" style="display:flex;align-items:flex-end;gap:8px">
+        <button class="btn btnp" onclick="runScenario()">▶ RUN</button>
+        <button class="btn btnd" onclick="clearScenario()">✕ CLEAR</button>
+      </div>
+    </div>
+    <div id="scres" style="display:none;margin-top:12px;">
+      <div style="font-family:'Oxanium',monospace;font-size:10px;color:var(--accent2);letter-spacing:2px;margin-bottom:6px">⟡ SELF-HEALING RESPONSE</div>
+      <div class="rg" id="scrg"></div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.7;margin-top:8px" id="scnarr"></div>
+      <!-- LEARNING FEEDBACK — shows after each run -->
+      <div id="learn-msg" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(0,255,157,0.06);border:1px solid rgba(0,255,157,0.35);border-radius:3px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--accent2)"></div>
+    </div>
+  </div>
+
+  <div class="g2" style="margin-bottom:14px">
+    <div class="card"><div class="ct">Simulation Chart</div><div class="cwt"><canvas id="wiC"></canvas></div></div>
+    <div class="card"><div class="ct">Saved Scenarios (Database)</div><div id="schist"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
+  </div>
+
+  <!-- LEARNING INTELLIGENCE PANEL -->
+  <div class="card" style="border-color:rgba(0,212,255,0.3)">
+    <div class="ct" style="color:var(--accent)">🧠 Model Intelligence — What the System Has Learned</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">
+      Every What-If run you do teaches the model. After 2+ runs of the same event on a road, the map stops guessing and uses your <b style="color:var(--accent)">actual learned congestion values</b> for that road.
+    </div>
+    <div id="learn-table"><div class="loading"><div class="spin"></div>Loading learned patterns…</div></div>
+    <div style="margin-top:8px;display:flex;gap:8px">
+      <button class="btn btnp" onclick="loadLearnedPatterns()">↻ REFRESH</button>
+    </div>
+  </div>
+</div>
+
+<!-- HEALTH -->
+<div class="section" id="s-health">
+  <div class="shdr"><h2>SYSTEM HEALTH</h2><span class="sub">// Anomaly detection · data integrity</span></div>
+  <div class="g4" style="margin-bottom:14px">
+    <div class="card g"><div class="ct">Backend</div><div class="kv g" style="font-size:16px">LIVE</div><div class="kl">FLASK + SQLITE</div></div>
+    <div class="card g"><div class="ct">Accuracy</div><div class="kv g" id="hacc">98.7%</div><div class="kl">DEVIATION &lt;5%</div></div>
+    <div class="card w"><div class="ct">Anomalies</div><div class="kv w" id="han">0</div><div class="kl">LAST 24H</div></div>
+    <div class="card g"><div class="ct">Uptime</div><div class="kv g">99.9%</div><div class="kl">SESSION</div></div>
+  </div>
+  <div class="g2">
+    <div class="card"><div class="ct">Anomaly Log</div><div class="llist" id="anlog"></div></div>
+    <div class="card"><div class="ct">Deviation Tracker</div><div class="cwt"><canvas id="devC"></canvas></div></div>
+  </div>
+</div>
+</main>
+<div class="tt" id="tt"></div>
+
+<script>
+'use strict';
+let city='Chennai',cities=[],td=null,selRoad=null;
+let healN=0,adjN=0,activeScen=null;
+let leafMap=null,roadLines={},vGroups={};
+let sigT={};
+let liveC,predC,cmpC,wiC,devC;
+let tickN=0;
+
+const $=id=>document.getElementById(id);
+const ts=()=>new Date().toLocaleTimeString('en-US',{hour12:false});
+const rnd=(a,b)=>Math.floor(a+Math.random()*(b-a));
+
+window.addEventListener('load',async()=>{
+  clockTick(); setInterval(clockTick,1000);
+  await loadCities();
+  await selectCity('Chennai');
+  initCharts(); renderCmpBars();
+  setInterval(mainTick,4000);
+});
+
+function clockTick(){$('clock').textContent=new Date().toLocaleTimeString('en-US',{hour12:false});}
+
+function showTab(n,el){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  $('s-'+n).classList.add('active'); el.classList.add('active');
+  if(n==='digital-twin') setTimeout(()=>{initMap();drawRoads();},120);
+  if(n==='comparison')   setTimeout(renderCmpBars,100);
+  if(n==='whatif')       { loadHist(); loadLearnedPatterns(); checkDatasetStatus(); }
+}
+
+async function loadCities(){const r=await fetch('/api/cities');cities=await r.json();setupSearch();}
+
+function setupSearch(){
+  const inp=$('csearch'),drop=$('cdrop');
+  inp.addEventListener('input',()=>{
+    const q=inp.value.trim().toLowerCase();
+    if(!q){drop.style.display='none';return;}
+    const hits=cities.filter(c=>c.name.toLowerCase().includes(q));
+    if(!hits.length){drop.style.display='none';return;}
+    drop.innerHTML=hits.map(c=>`<div class="copt" onclick="pick('${c.name}')"><span style="font-size:16px">${c.flag}</span><span>${c.name}</span><span class="cpop">${(c.population/1e6).toFixed(1)}M</span></div>`).join('');
+    drop.style.display='block';
+  });
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){const q=inp.value.trim().toLowerCase();const m=cities.find(c=>c.name.toLowerCase().includes(q));if(m)pick(m.name);}
+    if(e.key==='Escape')drop.style.display='none';
+  });
+  document.addEventListener('click',e=>{if(!e.target.closest('.swrap'))drop.style.display='none';});
+}
+
+function pick(n){$('csearch').value='';$('cdrop').style.display='none';selectCity(n);}
+
+async function selectCity(n){
+  city=n; selRoad=null; sigT={}; vGroups={};
+  document.querySelectorAll('.qbtn').forEach(b=>{
+    b.classList.toggle('active',b.textContent.trim()===n||(b.textContent.trim()==='Trichy'&&n==='Tiruchirappalli'));
+  });
+  fetch('/api/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({city:n})});
+  await refreshTraffic();
+  fillRoadDrop();
+  if($('s-digital-twin').classList.contains('active')){initMap();drawRoads();}
+}
+
+async function refreshTraffic(){
+  try{
+    const r=await fetch(`/api/traffic/${encodeURIComponent(city)}`);
+    td=await r.json();
+    updateKPIs(); initSigs();
+    $('cbadge').textContent=`${td.flag} ${td.city}`;
+  }catch(e){console.error(e);}
+}
+
+function updateKPIs(){
+  if(!td)return;
+  const s=td.summary;
+  $('k-tp').textContent=s.throughput.toLocaleString();
+  $('k-wt').textContent=s.avg_wait;
+  $('k-sg').textContent=s.surging_roads.length;
+  $('k-sgn').textContent=s.surging_roads[0]||'None';
+  $('k-tpd').textContent=`▲ +${Math.round(s.throughput/s.total_capacity*100-70)}% vs traditional`;
+  $('k-wtd').textContent=`▼ ${Math.round(s.avg_wait*.4)}s saved`;
+  $('dtacc').textContent=(95+Math.random()*4).toFixed(1)+'%';
+  if(s.surging_roads.length){addLog('evfeed','warn',`Surge: ${s.surging_roads[0]} — T+10min`);$('han').textContent=parseInt($('han').textContent||0)+1;addLog('anlog','warn',`Deviation: ${s.surging_roads[0]}`);}
+  else addLog('evfeed','ok',`All nominal — ${city}`);
+}
+
+function initSigs(){
+  if(!td)return;
+  td.roads.forEach(r=>{if(!sigT[r.id]){const g=Math.random()>.5,ext=r.will_surge?15:0;sigT[r.id]={color:g?'green':'red',timer:g?45+ext:20,max:g?60+ext:30,healed:r.will_surge};}});
+  renderSigs();
+}
+
+function renderSigs(){
+  if(!td)return;
+  $('siggrp').innerHTML=td.roads.slice(0,6).map(r=>{
+    const s=sigT[r.id]||{color:'green',timer:30,max:60,healed:false};
+    const nm=r.name.length>26?r.name.substring(0,24)+'…':r.name;
+    return `<div class="sigr"><div class="slt ${s.color}"></div><span class="snm">${nm}</span><div class="spb"><div class="spf ${s.color}" style="width:${(s.timer/s.max*100).toFixed(0)}%"></div></div><span class="stv">${s.timer}s</span><span class="shb ${s.healed?'h':'n'}">${s.healed?'⟡ HEALED':'STD'}</span></div>`;
+  }).join('');
+}
+
+function tickSigs(){
+  Object.entries(sigT).forEach(([id,s])=>{
+    s.timer=Math.max(0,s.timer-4);
+    if(s.timer<=0){
+      s.color=s.color==='green'?'red':'green';
+      s.timer=s.color==='green'?(s.healed?Math.round(s.max*1.3):s.max):Math.floor(s.max*.5);
+      if(s.healed&&s.color==='green'){adjN++;healN++;$('k-he').textContent=healN;$('dtadj').textContent=adjN;addLog('evfeed','ok',`Healing: ${id.replace(/_/g,' ')}`);addLog('dtlog','ok','Adjustment applied');}
+    }
+  });
+  renderSigs();
+}
+
+// ── MAP ──────────────────────────────────────────────────────────
+// Roads drawn using "points" array from backend — NOT just 2 points.
+// This makes roads follow actual paths and not cut diagonally.
+function initMap(){
+  if(!td)return;
+  if(leafMap){leafMap.remove();leafMap=null;roadLines={};vGroups={};}
+  leafMap=L.map('dtm',{center:[td.lat,td.lng],zoom:td.zoom,zoomControl:true});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'© OpenStreetMap © CARTO',subdomains:'abcd',maxZoom:19
+  }).addTo(leafMap);
+}
+
+function drawRoads(){
+  if(!leafMap||!td)return;
+  Object.values(roadLines).forEach(l=>leafMap.removeLayer(l));
+  Object.values(vGroups).forEach(g=>leafMap.removeLayer(g));
+  roadLines={}; vGroups={};
+  td.roads.forEach(r=>drawOneRoad(r));
+  updateRoadPanel();
+  updateScenBanner();
+}
+
+function drawOneRoad(road){
+  if(!leafMap)return;
+  const isScen=activeScen&&activeScen.affected_road===road.id;
+  const color=isScen?'#ff6b35':road.color;
+  const isSel=road.id===selRoad;
+
+  // ── KEY FIX: use all waypoints from road.points ──
+  // The backend sends an array of [lat,lng] pairs.
+  // Leaflet draws a smooth polyline through ALL of them,
+  // so the road follows the actual street instead of a straight diagonal.
+  const latLngs = road.points.map(p => [p[0], p[1]]);
+
+  const poly=L.polyline(latLngs,{
+    color, weight:isSel?9:5, opacity:isSel?1:0.85,
+    lineCap:'round', lineJoin:'round', smoothFactor:1
+  }).addTo(leafMap);
+
+  poly.bindPopup(makePopup(road),{maxWidth:230});
+  poly.on('click',()=>focusRoad(road.id));
+  roadLines[road.id]=poly;
+
+  // ── Vehicles spread along actual waypoints ────────
+  const group=L.layerGroup().addTo(leafMap);
+  vGroups[road.id]=group;
+  const count=Math.max(2,Math.round(road.congestion*14));
+  const vArr=[];
+
+  for(let i=0;i<count;i++){
+    const t=i/count;
+    // Interpolate position along the waypoints array
+    const totalSeg=road.points.length-1;
+    const seg=t*totalSeg;
+    const idx=Math.min(Math.floor(seg),totalSeg-1);
+    const frac=seg-idx;
+    const p0=road.points[idx], p1=road.points[idx+1]||p0;
+    const lat=p0[0]+frac*(p1[0]-p0[0])+(Math.random()-.5)*0.0003;
+    const lng=p0[1]+frac*(p1[1]-p0[1])+(Math.random()-.5)*0.0003;
+
+    const isbus=Math.random()<.07,istruck=Math.random()<.06;
+    const radius=isbus?5:istruck?4:3;
+    const marker=L.circleMarker([lat,lng],{
+      radius, color, fillColor:color, fillOpacity:.95, weight:1
+    }).addTo(group);
+
+    const spd=Math.max(0.00003,(1-road.congestion)*0.00015)*(0.6+Math.random()*.8);
+    vArr.push({marker,progress:t,dir:Math.random()>.5?1:-1,speed:spd,road});
+  }
+
+  animVehicles(vArr, road.id, road.points);
+}
+
+// Animate vehicles along the road waypoints — they stay locked to the map
+function animVehicles(vArr, roadId, points){
+  const totalSeg=points.length-1;
+  function step(){
+    if(!leafMap||!vGroups[roadId])return;
+    vArr.forEach(v=>{
+      v.progress+=v.speed*v.dir;
+      if(v.progress>=1){v.progress=1;v.dir=-1;}
+      if(v.progress<=0){v.progress=0;v.dir=1;}
+      const seg=v.progress*totalSeg;
+      const idx=Math.min(Math.floor(seg),totalSeg-1);
+      const frac=seg-idx;
+      const p0=points[idx], p1=points[idx+1]||p0;
+      const lat=p0[0]+frac*(p1[0]-p0[0]);
+      const lng=p0[1]+frac*(p1[1]-p0[1]);
+      v.marker.setLatLng([lat,lng]);
+    });
+    setTimeout(step,150);
+  }
+  step();
+}
+
+function makePopup(road){
+  const pct=Math.round(road.congestion*100);
+  return `<div style="font-family:'Rajdhani',sans-serif">
+    <div style="font-size:14px;font-weight:700;color:#00d4ff;margin-bottom:6px">${road.name}</div>
+    <div style="font-size:12px;margin-bottom:2px">Status: <b style="color:${road.color}">${road.status}</b></div>
+    <div style="font-size:12px;margin-bottom:2px">Volume: ${road.volume} / ${road.capacity}</div>
+    <div style="font-size:12px;margin-bottom:2px">Speed: <b>${road.speed_kmh} km/h</b></div>
+    <div style="font-size:12px;margin-bottom:4px">Wait: <b>${road.wait_time}s</b></div>
+    <div style="height:5px;background:#1a3060;border-radius:3px;overflow:hidden">
+      <div style="height:100%;width:${pct}%;background:${road.color}"></div>
+    </div>
+    <div style="font-size:10px;color:#7a9aba;margin-top:4px">${pct}% · ${road.lanes} lanes</div>
+    ${road.will_surge?`<div style="font-size:10px;color:#ffcc00;margin-top:4px">⚠ Surge predicted T+10min</div>`:''}
+  </div>`;
+}
+
+function focusRoad(id){
+  selRoad=id;
+  const road=td?.roads.find(r=>r.id===id);
+  if(!road)return;
+  if(leafMap){
+    const mid=road.points[Math.floor(road.points.length/2)];
+    leafMap.flyTo([mid[0],mid[1]],Math.max(leafMap.getZoom(),15),{duration:.8});
+    Object.entries(roadLines).forEach(([rid,poly])=>poly.setStyle({weight:rid===id?9:4,opacity:rid===id?1:0.55}));
+  }
+  $('mbv').textContent=`${road.volume}/${road.capacity}`;
+  $('mbs').textContent=road.status; $('mbs').style.color=road.color;
+  showRoadDetail(road); updateRoadPanel();
+}
+
+function showRoadDetail(road){
+  const pct=Math.round(road.congestion*100);
+  $('rdtl').innerHTML=`
+    <div style="font-size:14px;font-weight:700;color:var(--accent);font-family:'Oxanium',monospace;margin-bottom:8px">${road.name}</div>
+    <div class="dgrid">
+      <div class="di"><div class="dl">VOLUME</div><div class="dv" style="color:${road.color}">${road.volume}</div><div class="dl">of ${road.capacity}</div></div>
+      <div class="di"><div class="dl">SPEED</div><div class="dv" style="color:var(--accent)">${road.speed_kmh}</div><div class="dl">km/h</div></div>
+      <div class="di"><div class="dl">WAIT</div><div class="dv" style="color:var(--warn)">${road.wait_time}s</div></div>
+      <div class="di"><div class="dl">CONGESTION</div><div class="dv" style="color:${road.color}">${pct}%</div></div>
+    </div>
+    <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:8px"><div style="height:100%;width:${pct}%;background:${road.color};border-radius:3px;transition:width .6s"></div></div>
+    <div style="font-size:10px;color:var(--text3)">${road.lanes} lanes · capacity ${road.capacity}/hr</div>
+    ${road.will_surge?`<div style="margin-top:8px;padding:7px;background:rgba(255,204,0,.06);border:1px solid rgba(255,204,0,.35);border-radius:3px;font-size:10px;color:var(--warn)">⚠ Surge T+10min — healing +${road.green_extension||15}s green</div>`:''}
+    ${activeScen&&activeScen.affected_road===road.id?`<div style="margin-top:8px;padding:7px;background:rgba(255,107,53,.07);border:1px solid rgba(255,107,53,.4);border-radius:3px;font-size:10px;color:var(--accent3)">🔴 WHAT-IF: ${activeScen.event_type.replace(/_/g,' ').toUpperCase()}</div>`:''}
+  `;
+}
+
+function updateRoadPanel(){
+  if(!td)return;
+  $('rlist').innerHTML=td.roads.map(r=>`
+    <div class="ri ${r.id===selRoad?'sel':''}" onclick="focusRoad('${r.id}')">
+      <div class="rdot" style="background:${r.color}"></div>
+      <span class="rnm">${r.name}</span>
+      <span class="rst" style="color:${r.color}">${r.status}</span>
+    </div>`).join('');
+}
+
+function updateScenBanner(){
+  const b=$('scbanner');
+  if(activeScen){b.style.display='block';b.textContent=`⚠ WHAT-IF: ${activeScen.event_type.replace(/_/g,' ').toUpperCase()} ACTIVE`;}
+  else b.style.display='none';
+}
+
+function fillRoadDrop(){
+  if(!td)return;
+  $('wi-rd').innerHTML=td.roads.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+}
+
+async function runScenario(){
+  const ev=$('wi-ev').value,rd=$('wi-rd').value,du=parseInt($('wi-du').value),intensity=parseInt($('wi-in').value);
+  const r=await fetch('/api/scenario',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({city,event_type:ev,affected_road:rd,duration:du,intensity})});
+  const res=await r.json();
+  activeScen={event_type:ev,affected_road:rd};
+  $('scres').style.display='block';
+  $('scrg').innerHTML=`<div class="ritem"><div class="rv">${res.wait_saved}s</div><div class="rl">Wait Saved</div></div><div class="ritem"><div class="rv">${res.congestion_reduction}%</div><div class="rl">Congestion ↓</div></div><div class="ritem"><div class="rv">${res.heal_events}</div><div class="rl">Heal Events</div></div>`;
+  $('scnarr').textContent=res.narrative;
+
+  // Show learning feedback
+  if(res.learning_message){
+    const lm=$('learn-msg');
+    lm.style.display='block';
+    lm.textContent=`🧠 ${res.learning_message}`;
+  }
+
+  const labels=Array.from({length:30},(_,i)=>`T+${i*2}m`);
+  const noH=Array.from({length:30},(_,i)=>Math.round(res.no_heal_volume*(0.5+(i/29)*.8+Math.random()*.08)));
+  const heal=noH.map((v,i)=>i<3?v:Math.round(v*(.38+Math.random()*.12)));
+  wiC.data.labels=labels; wiC.data.datasets[0].data=noH; wiC.data.datasets[1].data=heal; wiC.update();
+  await refreshTraffic();
+  if(leafMap)drawRoads();
+  addLog('evfeed','crit',`Scenario: ${ev.replace(/_/g,' ')} on ${rd.replace(/_/g,' ')}`);
+  addLog('dtlog','warn','What-If applied — Twin updated');
+  updateScenBanner(); loadHist();
+  loadLearnedPatterns(); // refresh the learning table
+}
+
+async function clearScenario(){
+  await fetch(`/api/scenario/clear/${encodeURIComponent(city)}`,{method:'DELETE'});
+  activeScen=null; $('scres').style.display='none';
+  await refreshTraffic();
+  if(leafMap)drawRoads();
+  updateScenBanner(); addLog('evfeed','ok','Scenario cleared');
+}
+
+// ── DATASET UPLOAD ────────────────────────────────────────────────────────────
+async function uploadDataset(){
+  const dscity=$('ds-city').value;
+  const fileInput=$('ds-file');
+  if(!fileInput.files.length){
+    $('ds-result').style.display='block';
+    $('ds-result').style.cssText='display:block;margin-top:8px;padding:10px 14px;border-radius:3px;font-size:11px;background:rgba(255,51,85,.08);border:1px solid rgba(255,51,85,.4);color:var(--danger)';
+    $('ds-result').textContent='⚠ Please select a CSV file first.';
+    return;
+  }
+  const formData=new FormData();
+  formData.append('city',dscity);
+  formData.append('file',fileInput.files[0]);
+
+  $('ds-status').textContent='⏳ Uploading and processing dataset…';
+  $('ds-status').style.color='var(--warn)';
+
+  try{
+    const r=await fetch('/api/dataset/upload',{method:'POST',body:formData});
+    const res=await r.json();
+    if(res.ok){
+      $('ds-status').textContent=`✅ ${res.message}`;
+      $('ds-status').style.color='var(--accent2)';
+      $('ds-result').style.cssText='display:block;margin-top:8px;padding:10px 14px;border-radius:3px;font-size:11px;background:rgba(0,255,157,.06);border:1px solid rgba(0,255,157,.35);color:var(--accent2)';
+      $('ds-result').innerHTML=`<b>✓ ${res.rows_inserted} rows loaded</b> for <b>${dscity}</b>.<br>The Digital Twin map will now show your real traffic data instead of simulated values.<br>${res.errors&&res.errors.length?'<span style="color:var(--warn)">⚠ '+res.errors.length+' rows skipped (check format)</span>':'All rows valid ✓'}`;
+      // Switch to Tiruchirappalli on map if that's the dataset city
+      if(dscity!==city) selectCity(dscity);
+      else { await refreshTraffic(); if(leafMap)drawRoads(); }
+      addLog('evfeed','ok',`Dataset loaded — ${res.rows_inserted} rows for ${dscity}`);
+      addLog('dtlog','info',`Map now using real dataset data for ${dscity}`);
+      loadLearnedPatterns();
+    } else {
+      $('ds-status').textContent=`❌ Upload failed: ${res.message}`;
+      $('ds-status').style.color='var(--danger)';
+    }
+  }catch(e){
+    $('ds-status').textContent='❌ Network error — is the server running?';
+    $('ds-status').style.color='var(--danger)';
+  }
+}
+
+async function clearDataset(){
+  const dscity=$('ds-city').value;
+  await fetch(`/api/dataset/clear/${encodeURIComponent(dscity)}`,{method:'DELETE'});
+  $('ds-status').textContent='Dataset cleared — using simulated data';
+  $('ds-status').style.color='var(--text3)';
+  $('ds-result').style.display='none';
+  await refreshTraffic();
+  if(leafMap)drawRoads();
+  addLog('evfeed','ok',`Dataset cleared for ${dscity}`);
+}
+
+async function checkDatasetStatus(){
+  try{
+    const r=await fetch(`/api/dataset/status/${encodeURIComponent(city)}`);
+    const s=await r.json();
+    if(s.loaded){
+      $('ds-city').value=city;
+      $('ds-status').textContent=`✅ Dataset active — ${s.row_count} rows loaded at ${(s.uploaded_at||'').substring(11,19)} — roads: ${s.roads_covered.join(', ')}`;
+      $('ds-status').style.color='var(--accent2)';
+    }
+  }catch(e){}
+}
+
+// ── LEARNING INTELLIGENCE TABLE ───────────────────────────────────────────────
+async function loadLearnedPatterns(){
+  const el=$('learn-table');
+  try{
+    const r=await fetch(`/api/learned/${encodeURIComponent(city)}`);
+    const data=await r.json();
+    if(!data.length){
+      el.innerHTML='<div style="font-size:11px;color:var(--text3);padding:10px">No patterns learned yet. Run What-If scenarios to start teaching the model.</div>';
+      return;
+    }
+    const bar=(v)=>{
+      const pct=Math.round(v*100);
+      const col=pct>85?'var(--danger)':pct>65?'var(--accent3)':pct>40?'var(--warn)':'var(--accent2)';
+      return `<div style="display:flex;align-items:center;gap:6px"><div style="flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${col};border-radius:3px"></div></div><span style="font-size:9px;color:${col};width:28px;font-family:'Share Tech Mono',monospace">${pct}%</span></div>`;
+    };
+    el.innerHTML=`<table class="htbl">
+      <thead><tr>
+        <th>Road</th><th>Event</th><th>Learned Congestion</th><th>Avg Wait</th><th>Samples</th><th>Confidence</th>
+      </tr></thead>
+      <tbody>${data.map(p=>`<tr>
+        <td style="color:var(--accent)">${p.road_id.replace(/_/g,' ')}</td>
+        <td style="color:var(--accent3)">${p.event_type}</td>
+        <td style="min-width:120px">${bar(p.avg_congestion)}</td>
+        <td style="color:var(--warn);font-family:'Share Tech Mono',monospace">${p.avg_wait}s</td>
+        <td style="color:var(--text2);font-family:'Share Tech Mono',monospace">${p.sample_count}</td>
+        <td style="color:${p.sample_count>=5?'var(--accent2)':p.sample_count>=2?'var(--warn)':'var(--text3)'}">
+          ${p.sample_count>=5?'HIGH ✓':p.sample_count>=2?'BUILDING…':'LOW (need 2+)'}
+        </td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  }catch(e){
+    el.innerHTML='<div style="color:var(--danger);font-size:11px">Error loading patterns</div>';
+  }
+}
+
+async function loadHist(){
+  const e=$('schist');
+  try{
+    const r=await fetch(`/api/scenarios/${encodeURIComponent(city)}`);
+    const data=await r.json();
+    if(!data.length){e.innerHTML='<div style="font-size:11px;color:var(--text3);padding:10px">No scenarios yet.</div>';return;}
+    e.innerHTML=`<table class="htbl"><thead><tr><th>Event</th><th>Road</th><th>Int</th><th>Saved</th><th>Time</th></tr></thead><tbody>${data.map(s=>`<tr><td style="color:var(--accent3)">${s.event_type.replace(/_/g,' ')}</td><td>${(s.affected_road||'').replace(/_/g,' ')}</td><td>${s.intensity}%</td><td style="color:var(--accent2)">${s.result.wait_saved}s</td><td style="color:var(--text3)">${(s.timestamp||'').substring(11,19)}</td></tr>`).join('')}</tbody></table>`;
+  }catch(err){e.innerHTML='<div style="color:var(--danger);font-size:11px">Error</div>';}
+}
+
+function renderCmpBars(){
+  const m=[{l:'Throughput (cars/hr)',t:840,s:1240,mx:1400},{l:'Green Efficiency (%)',t:52,s:78,mx:100},{l:'Stop-Go Events/hr',t:34,s:12,mx:40},{l:'Avg Wait (sec)',t:68,s:31,mx:80},{l:'Fuel Waste Index',t:72,s:28,mx:80}];
+  $('cmpbars').innerHTML=m.map(x=>`<div class="cr2"><div class="cl"><span>${x.l}</span><span><span style="color:var(--accent3)">${x.t}</span> → <span style="color:var(--accent2)">${x.s}</span></span></div><div class="ck"><div class="cft" style="width:${x.t/x.mx*100}%"></div></div><div class="ck"><div class="cfs" style="width:${x.s/x.mx*100}%"></div></div></div>`).join('');
+}
+
+const co=(ex={})=>({animation:{duration:200},responsive:true,maintainAspectRatio:false,
+  plugins:{legend:{labels:{color:'#7a9aba',font:{family:'Share Tech Mono',size:9},boxWidth:10}}},
+  scales:{x:{ticks:{color:'#3d5a7a',font:{size:8,family:'Share Tech Mono'},maxRotation:0},grid:{color:'rgba(26,48,96,.3)'}},y:{ticks:{color:'#3d5a7a',font:{size:8,family:'Share Tech Mono'}},grid:{color:'rgba(26,48,96,.3)'}}},...ex});
+const mkL=(n)=>Array.from({length:n},(_,i)=>{const d=new Date(Date.now()-(n-1-i)*60000);return d.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit'});});
+
+function initCharts(){
+  liveC=new Chart($('liveC'),{type:'line',data:{labels:mkL(20),datasets:[{label:'Road A',data:Array.from({length:20},()=>rnd(70,160)),borderColor:'#00d4ff',borderWidth:2,pointRadius:0,tension:.4},{label:'Road B',data:Array.from({length:20},()=>rnd(50,120)),borderColor:'#00ff9d',borderWidth:2,pointRadius:0,tension:.4},{label:'Road C',data:Array.from({length:20},()=>rnd(40,100)),borderColor:'#ff6b35',borderWidth:2,pointRadius:0,tension:.4}]},options:co()});
+  const act=Array.from({length:15},(_,i)=>rnd(60+i*2,100+i*3));
+  predC=new Chart($('predC'),{type:'line',data:{labels:[...mkL(15),...Array.from({length:8},(_,i)=>`+${i+1}m`)],datasets:[{label:'Actual',data:[...act,...Array(8).fill(null)],borderColor:'#00ff9d',borderWidth:2,pointRadius:0,tension:.4},{label:'Forecast',data:[...Array(15).fill(null),...Array.from({length:8},(_,i)=>rnd(110+i*5,145+i*6))],borderColor:'#00d4ff',borderWidth:2,borderDash:[5,3],pointRadius:0,tension:.4,fill:true,backgroundColor:'rgba(0,212,255,.05)'}]},options:co()});
+  cmpC=new Chart($('cmpC'),{type:'line',data:{labels:mkL(20),datasets:[{label:'Self-Healing',data:Array.from({length:20},()=>rnd(1100,1300)),borderColor:'#00ff9d',backgroundColor:'rgba(0,255,157,.05)',borderWidth:2,pointRadius:0,tension:.4,fill:true},{label:'Traditional',data:Array.from({length:20},()=>rnd(750,900)),borderColor:'#ff6b35',backgroundColor:'rgba(255,107,53,.05)',borderWidth:2,pointRadius:0,tension:.4,fill:true}]},options:co()});
+  wiC=new Chart($('wiC'),{type:'line',data:{labels:Array.from({length:30},(_,i)=>`T+${i*2}m`),datasets:[{label:'No Intervention',data:Array.from({length:30},(_,i)=>rnd(80+i*3,120+i*4)),borderColor:'#ff3355',borderWidth:2,pointRadius:0,tension:.4},{label:'Self-Healing',data:Array.from({length:30},()=>rnd(70,95)),borderColor:'#00ff9d',backgroundColor:'rgba(0,255,157,.06)',borderWidth:2,pointRadius:0,tension:.4,fill:true}]},options:co()});
+  const dv=Array.from({length:20},()=>+(Math.random()*9).toFixed(1));
+  devC=new Chart($('devC'),{type:'bar',data:{labels:mkL(20),datasets:[{label:'Deviation %',data:dv,backgroundColor:dv.map(v=>v>6?'rgba(255,51,85,.6)':v>4?'rgba(255,204,0,.5)':'rgba(0,212,255,.4)'),borderColor:dv.map(v=>v>6?'#ff3355':v>4?'#ffcc00':'#00d4ff'),borderWidth:1}]},options:co()});
+}
+
+function tickCharts(){
+  if(!td)return;
+  const now=new Date().toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit'});
+  liveC.data.labels.push(now);liveC.data.labels.shift();
+  td.roads.slice(0,3).forEach((r,i)=>{liveC.data.datasets[i].data.push(r.volume);liveC.data.datasets[i].data.shift();});
+  liveC.update('none');
+  predC.data.labels.push(now);predC.data.labels.shift();
+  predC.data.datasets[0].data.push(rnd(80,150));predC.data.datasets[0].data.shift();predC.update('none');
+  cmpC.data.labels.push(now);cmpC.data.labels.shift();
+  cmpC.data.datasets[0].data.push(rnd(1100,1300));cmpC.data.datasets[0].data.shift();
+  cmpC.data.datasets[1].data.push(rnd(750,920));cmpC.data.datasets[1].data.shift();cmpC.update('none');
+}
+
+function addLog(cid,type,msg){
+  const f=$(cid),d=document.createElement('div');
+  d.className=`le ${type}`;
+  d.innerHTML=`<span class="lt">${ts()}</span><span class="lm">${msg}</span><span class="ltg ${type}">${type.toUpperCase()}</span>`;
+  f.prepend(d);if(f.children.length>14)f.removeChild(f.lastChild);
+}
+
+function showTT(e,t){const x=$('tt');x.textContent=t;x.style.display='block';x.style.left=(e.clientX+10)+'px';x.style.top=(e.clientY-18)+'px';}
+function hideTT(){$('tt').style.display='none';}
+
+const amsgs=[['warn','Volume deviation — recalibrating'],['ok','Pattern matched — peak profile'],['info','Accuracy updated'],['crit','Spike — possible unscheduled event']];
+async function mainTick(){
+  tickN++;
+  tickSigs(); tickCharts();
+  if(tickN%3===0){
+    await refreshTraffic();
+    if(leafMap&&$('s-digital-twin').classList.contains('active')){
+      drawRoads();
+      if(selRoad){const r=td?.roads.find(x=>x.id===selRoad);if(r)showRoadDetail(r);}
+    }
+    addLog('dtlog','info',`Twin sync — ${city}`);
+  }
+  if(tickN%7===0){const m=amsgs[tickN%amsgs.length];addLog('anlog',m[0],m[1]);}
+}
+
+window.addEventListener('resize',()=>{if(leafMap)leafMap.invalidateSize();});
+</script>
+</body>
+</html>
